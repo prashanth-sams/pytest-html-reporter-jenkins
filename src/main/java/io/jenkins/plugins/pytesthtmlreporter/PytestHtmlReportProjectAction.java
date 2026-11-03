@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.StaplerResponse2;
 
@@ -22,10 +23,14 @@ public class PytestHtmlReportProjectAction implements Action {
     private static final int SEARCH_LIMIT = 100;
 
     private static final int CHART_WIDTH = 520;
-    private static final int CHART_HEIGHT = 200;
+    private static final int CHART_HEIGHT = 210;
     private static final int AXIS_LEFT = 40;
-    private static final int AXIS_BOTTOM = 24;
-    private static final int TOP_PADDING = 10;
+    private static final int AXIS_BOTTOM = 22;
+    private static final int TOP_PADDING = 28;
+
+    private static final String[][] SERIES = {
+        {"phr-pass", "passed"}, {"phr-fail", "failed"}, {"phr-error", "errors"}, {"phr-skip", "skipped"}
+    };
 
     private final Job<?, ?> job;
 
@@ -37,9 +42,13 @@ public class PytestHtmlReportProjectAction implements Action {
         return job;
     }
 
+    /**
+     * Always shown: this action only exists while the job's last successful build carries a report
+     * (see {@link PytestHtmlReportBuildAction#getProjectActions()}).
+     */
     @Override
     public String getIconFileName() {
-        return getLatestRun() == null ? null : PytestHtmlReportBuildAction.ICON;
+        return PytestHtmlReportBuildAction.ICON;
     }
 
     @Override
@@ -56,7 +65,9 @@ public class PytestHtmlReportProjectAction implements Action {
     @CheckForNull
     public Run<?, ?> getLatestRun() {
         int searched = 0;
-        for (Run<?, ?> r = job.getLastCompletedBuild(); r != null && searched < SEARCH_LIMIT; r = r.getPreviousCompletedBuild()) {
+        for (Run<?, ?> r = job.getLastCompletedBuild();
+                r != null && searched < SEARCH_LIMIT;
+                r = r.getPreviousCompletedBuild()) {
             if (r.getAction(PytestHtmlReportBuildAction.class) != null) {
                 return r;
             }
@@ -78,21 +89,15 @@ public class PytestHtmlReportProjectAction implements Action {
     /** One point of the trend: a build and the totals it recorded. */
     public static final class TrendPoint {
         private final int number;
-        private final String url;
         private final PytestReportSummary summary;
 
-        TrendPoint(int number, String url, PytestReportSummary summary) {
+        TrendPoint(int number, PytestReportSummary summary) {
             this.number = number;
-            this.url = url;
             this.summary = summary;
         }
 
         public int getNumber() {
             return number;
-        }
-
-        public String getUrl() {
-            return url;
         }
 
         public PytestReportSummary getSummary() {
@@ -111,7 +116,7 @@ public class PytestHtmlReportProjectAction implements Action {
             searched++;
             PytestHtmlReportBuildAction action = r.getAction(PytestHtmlReportBuildAction.class);
             if (action != null && action.getSummary() != null) {
-                points.add(new TrendPoint(r.getNumber(), r.getUrl(), action.getSummary()));
+                points.add(new TrendPoint(r.getNumber(), action.getSummary()));
             }
         }
         Collections.reverse(points);
@@ -124,13 +129,16 @@ public class PytestHtmlReportProjectAction implements Action {
     }
 
     /**
-     * The trend as a stacked bar chart in inline SVG. Built here rather than in Jelly so that only
-     * numbers computed on the controller reach the page; it carries no text from the build.
+     * The trend as a stacked bar chart in inline SVG, or an empty string when fewer than two builds
+     * recorded totals. Built here rather than in Jelly so that only numbers computed on the controller
+     * reach the page: it carries no text from the build. Colors come from {@code trend.css}, which maps
+     * the classes to Jenkins' theme variables. Each bar links to that build's report, relative to the
+     * job page the chart is shown on.
      */
     @NonNull
     public String getTrendSvg() {
         List<TrendPoint> points = getTrend();
-        if (points.isEmpty()) {
+        if (points.size() < 2) {
             return "";
         }
         int max = 1;
@@ -145,15 +153,32 @@ public class PytestHtmlReportProjectAction implements Action {
         int baseline = TOP_PADDING + plotHeight;
 
         StringBuilder svg = new StringBuilder();
-        svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"pytest-html-reporter-trend\" viewBox=\"0 0 ")
+        svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"phr-trend\" viewBox=\"0 0 ")
                 .append(CHART_WIDTH)
                 .append(' ')
                 .append(CHART_HEIGHT)
-                .append("\" width=\"100%\" role=\"img\" aria-label=\"pytest results of the last ")
+                .append("\" role=\"img\" aria-label=\"pytest results of the last ")
                 .append(points.size())
                 .append(" builds\">");
-        // axis and the maximum label
-        svg.append("<line x1=\"")
+
+        // legend
+        int legendX = AXIS_LEFT;
+        for (String[] series : SERIES) {
+            svg.append("<rect class=\"")
+                    .append(series[0])
+                    .append("\" x=\"")
+                    .append(legendX)
+                    .append("\" y=\"4\" width=\"10\" height=\"10\"/>");
+            svg.append("<text class=\"phr-legend\" x=\"")
+                    .append(legendX + 14)
+                    .append("\" y=\"13\">")
+                    .append(series[1])
+                    .append("</text>");
+            legendX += 80;
+        }
+
+        // axis with its maximum and zero
+        svg.append("<line class=\"phr-axis\" x1=\"")
                 .append(AXIS_LEFT)
                 .append("\" y1=\"")
                 .append(baseline)
@@ -161,27 +186,30 @@ public class PytestHtmlReportProjectAction implements Action {
                 .append(CHART_WIDTH - 4)
                 .append("\" y2=\"")
                 .append(baseline)
-                .append("\" style=\"stroke:var(--text-color-secondary,#888)\"/>");
-        svg.append("<text x=\"")
+                .append("\"/>");
+        svg.append("<text class=\"phr-label\" x=\"")
                 .append(AXIS_LEFT - 6)
                 .append("\" y=\"")
-                .append(TOP_PADDING + 10)
-                .append("\" text-anchor=\"end\" font-size=\"11\" style=\"fill:var(--text-color-secondary,#888)\">")
+                .append(TOP_PADDING + 9)
+                .append("\" text-anchor=\"end\">")
                 .append(max)
                 .append("</text>");
-        svg.append("<text x=\"")
+        svg.append("<text class=\"phr-label\" x=\"")
                 .append(AXIS_LEFT - 6)
                 .append("\" y=\"")
                 .append(baseline)
-                .append("\" text-anchor=\"end\" font-size=\"11\" style=\"fill:var(--text-color-secondary,#888)\">0</text>");
+                .append("\" text-anchor=\"end\">0</text>");
 
         int labelEvery = Math.max(1, (int) Math.ceil(points.size() / 10.0));
         for (int i = 0; i < points.size(); i++) {
             TrendPoint p = points.get(i);
             PytestReportSummary s = p.getSummary();
             double x = AXIS_LEFT + i * slot + (slot - barWidth) / 2;
-            double y = baseline;
-            svg.append("<g><title>#")
+            svg.append("<a href=\"")
+                    .append(p.getNumber())
+                    .append('/')
+                    .append(PytestHtmlReportBuildAction.URL_NAME)
+                    .append("/\"><title>#")
                     .append(p.getNumber())
                     .append(": ")
                     .append(s.getPassed())
@@ -192,18 +220,18 @@ public class PytestHtmlReportProjectAction implements Action {
                     .append(" errors, ")
                     .append(s.getSkipped())
                     .append(" skipped</title>");
-            y = bar(svg, x, y, barWidth, s.getPassed(), max, plotHeight, "var(--success-color,#1ea64b)");
-            y = bar(svg, x, y, barWidth, s.getSkipped(), max, plotHeight, "var(--text-color-secondary,#9e9e9e)");
-            y = bar(svg, x, y, barWidth, s.getErrors(), max, plotHeight, "var(--warning-color,#fe820a)");
-            bar(svg, x, y, barWidth, s.getFailed(), max, plotHeight, "var(--error-color,#e6001f)");
-            svg.append("</g>");
+            double y = baseline;
+            y = bar(svg, x, y, barWidth, s.getPassed(), max, plotHeight, "phr-pass");
+            y = bar(svg, x, y, barWidth, s.getSkipped(), max, plotHeight, "phr-skip");
+            y = bar(svg, x, y, barWidth, s.getErrors(), max, plotHeight, "phr-error");
+            bar(svg, x, y, barWidth, s.getFailed(), max, plotHeight, "phr-fail");
+            svg.append("</a>");
             if (i % labelEvery == 0 || i == points.size() - 1) {
-                svg.append("<text x=\"")
+                svg.append("<text class=\"phr-label\" x=\"")
                         .append(fmt(x + barWidth / 2))
                         .append("\" y=\"")
                         .append(CHART_HEIGHT - 6)
-                        .append("\" text-anchor=\"middle\" font-size=\"11\"")
-                        .append(" style=\"fill:var(--text-color-secondary,#888)\">#")
+                        .append("\" text-anchor=\"middle\">#")
                         .append(p.getNumber())
                         .append("</text>");
             }
@@ -213,13 +241,22 @@ public class PytestHtmlReportProjectAction implements Action {
     }
 
     private static double bar(
-            StringBuilder svg, double x, double bottom, double width, int count, int max, int plotHeight, String color) {
+            StringBuilder svg,
+            double x,
+            double bottom,
+            double width,
+            int count,
+            int max,
+            int plotHeight,
+            String cssClass) {
         if (count <= 0) {
             return bottom;
         }
         double height = (double) count * plotHeight / max;
         double top = bottom - height;
-        svg.append("<rect x=\"")
+        svg.append("<rect class=\"")
+                .append(cssClass)
+                .append("\" x=\"")
                 .append(fmt(x))
                 .append("\" y=\"")
                 .append(fmt(top))
@@ -227,13 +264,11 @@ public class PytestHtmlReportProjectAction implements Action {
                 .append(fmt(width))
                 .append("\" height=\"")
                 .append(fmt(height))
-                .append("\" style=\"fill:")
-                .append(color)
                 .append("\"/>");
         return top;
     }
 
     private static String fmt(double value) {
-        return String.format(java.util.Locale.ROOT, "%.1f", value);
+        return String.format(Locale.ROOT, "%.1f", value);
     }
 }

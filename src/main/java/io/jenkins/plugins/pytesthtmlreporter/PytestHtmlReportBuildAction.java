@@ -3,10 +3,13 @@ package io.jenkins.plugins.pytesthtmlreporter;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
+import hudson.Functions;
 import hudson.model.Action;
 import hudson.model.DirectoryBrowserSupport;
 import hudson.model.Run;
+import jakarta.servlet.ServletException;
 import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import jenkins.model.RunAction2;
@@ -80,13 +83,17 @@ public class PytestHtmlReportBuildAction implements RunAction2, SimpleBuildStep.
     /**
      * Serves the report and every file next to it (screenshots, coverage pages). Files are served
      * through {@link DirectoryBrowserSupport}, so Jenkins' Content-Security-Policy and resource root
-     * URL settings apply to them.
+     * URL settings apply to them, and like archived artifacts they need the Artifacts permission when
+     * that permission is enabled.
      */
-    public DirectoryBrowserSupport doDynamic(StaplerRequest2 req, StaplerResponse2 rsp) {
+    public void doDynamic(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException, ServletException {
+        if (Functions.isArtifactsPermissionEnabled()) {
+            run.checkPermission(Run.ARTIFACTS);
+        }
         DirectoryBrowserSupport dbs =
                 new DirectoryBrowserSupport(this, new FilePath(getReportDir(run)), getDisplayName(), ICON, false);
         dbs.setIndexFileName(indexFile);
-        return dbs;
+        dbs.generateResponse(req, rsp, this);
     }
 
     @Override

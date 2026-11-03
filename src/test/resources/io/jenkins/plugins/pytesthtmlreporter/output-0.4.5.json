@@ -1,0 +1,79 @@
+{
+  "content": {
+    "suites": {
+      "0": {
+        "suite_name": "tests/test_sample.py",
+        "tests": {
+          "0": {
+            "status": "PASS",
+            "message": "",
+            "test_name": "test_login_works",
+            "rerun": "0",
+            "duration": 0.00029,
+            "owner": [],
+            "severity": ""
+          },
+          "1": {
+            "status": "PASS",
+            "message": "",
+            "test_name": "test_logout_works",
+            "rerun": "0",
+            "duration": 0.00038,
+            "owner": [],
+            "severity": ""
+          },
+          "2": {
+            "status": "FAIL",
+            "message": "   AssertionError: cart total is wrong\n   assert 6 == 7\n    +  where 6 = sum([1, 2, 3])\n",
+            "test_name": "test_cart_total",
+            "rerun": "0",
+            "duration": 0.00055,
+            "owner": [],
+            "severity": ""
+          },
+          "3": {
+            "status": "SKIP",
+            "message": "('/home/runner/work/project/tests/test_sample.py', 17, 'Skipped: feature flag off')\n",
+            "test_name": "test_checkout",
+            "rerun": "0",
+            "duration": 0.00043,
+            "owner": [],
+            "severity": ""
+          },
+          "4": {
+            "status": "xFAIL",
+            "message": "   assert False\n",
+            "test_name": "test_known_bug",
+            "rerun": "0",
+            "duration": 0.00027,
+            "owner": [],
+            "severity": ""
+          }
+        },
+        "status": {
+          "total_pass": 2,
+          "total_fail": 1,
+          "total_skip": 1,
+          "total_error": 0,
+          "total_xpass": 0,
+          "total_xfail": 1,
+          "total_rerun": 0
+        }
+      }
+    }
+  },
+  "date": "November 03, 2026",
+  "start_time": 1793689397.6943927,
+  "total_suite": 1,
+  "status": "FAIL",
+  "status_list": {
+    "pass": "2",
+    "fail": "1",
+    "skip": "1",
+    "error": "0",
+    "xpass": "0",
+    "xfail": "1",
+    "rerun": "0"
+  },
+  "total_tests": "5"
+}

@@ -29,10 +29,9 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 @WithJenkins
 class PytestHtmlReportPublisherTest {
 
-    private static final String REPORT_HTML = "<html><body><h1>pytest-html-reporter sample</h1></body></html>";
-    private static final String PASSING_JSON =
-            "{\"status\": \"PASS\", \"total_suite\": 1, \"total_tests\": \"4\","
-                    + " \"status_list\": {\"pass\": \"4\", \"fail\": \"0\", \"skip\": \"0\", \"error\": \"0\"}}";
+    static final String REPORT_HTML = "<html><body><h1>pytest-html-reporter sample</h1></body></html>";
+    static final String PASSING_JSON = "{\"status\": \"PASS\", \"total_suite\": 1, \"total_tests\": \"4\","
+            + " \"status_list\": {\"pass\": \"4\", \"fail\": \"0\", \"skip\": \"0\", \"error\": \"0\"}}";
 
     /** Writes a report the way {@code pytest --html-report=<dir>} lays one out. */
     private static final class WriteReport extends TestBuilder {
@@ -65,6 +64,7 @@ class PytestHtmlReportPublisherTest {
 
         FreeStyleBuild b = j.assertBuildStatus(Result.UNSTABLE, p.scheduleBuild2(0));
         j.assertLogContains("11 tests: 8 passed, 1 failed, 0 errors, 1 skipped", b);
+        j.assertLogContains("Marking the build unstable", b);
 
         PytestHtmlReportBuildAction action = b.getAction(PytestHtmlReportBuildAction.class);
         assertNotNull(action);
@@ -77,8 +77,10 @@ class PytestHtmlReportPublisherTest {
             assertThat(index.getWebResponse().getContentAsString(), containsString("pytest-html-reporter sample"));
             Page screenshot = wc.goTo(b.getUrl() + "pytest-html-report/pytest_screenshots/test_login.png", null);
             assertEquals("png", screenshot.getWebResponse().getContentAsString());
-            Page buildPage = wc.goTo(b.getUrl(), null);
-            assertThat(buildPage.getWebResponse().getContentAsString(), containsString("11 tests:"));
+            String buildPage = wc.goTo(b.getUrl(), null).getWebResponse().getContentAsString();
+            assertThat(buildPage, containsString("11 tests:"));
+            assertThat(buildPage, containsString("Coverage: 87.5%"));
+            assertThat(buildPage, containsString("phr-csp-hint"));
         }
     }
 
@@ -98,7 +100,9 @@ class PytestHtmlReportPublisherTest {
         assertEquals(2, trend.size());
         assertEquals(1, trend.get(0).getNumber());
         assertTrue(projectAction.isTrendAvailable());
-        assertThat(projectAction.getTrendSvg(), containsString("<rect"));
+        String svg = projectAction.getTrendSvg();
+        assertThat(svg, containsString("<rect class=\"phr-pass\""));
+        assertThat(svg, containsString("<a href=\"2/pytest-html-report/\">"));
 
         try (JenkinsRule.WebClient wc = j.createWebClient()) {
             Page latest = wc.goTo(p.getUrl() + "pytest-html-report/", null);
@@ -130,7 +134,20 @@ class PytestHtmlReportPublisherTest {
         PytestHtmlReportBuildAction action = b.getAction(PytestHtmlReportBuildAction.class);
         assertNotNull(action);
         assertNull(action.getSummary());
-        assertFalse(p.getAction(PytestHtmlReportProjectAction.class).isTrendAvailable());
+        PytestHtmlReportProjectAction projectAction = p.getAction(PytestHtmlReportProjectAction.class);
+        assertFalse(projectAction.isTrendAvailable());
+        assertEquals("", projectAction.getTrendSvg());
+    }
+
+    @Test
+    void unreadableOutputJsonDoesNotFailTheBuild(JenkinsRule j) throws Exception {
+        FreeStyleProject p = j.createFreeStyleProject();
+        p.getBuildersList().add(new WriteReport("report", "null"));
+        p.getPublishersList().add(new PytestHtmlReportPublisher());
+
+        FreeStyleBuild b = j.buildAndAssertSuccess(p);
+        j.assertLogContains("Could not read output.json", b);
+        assertNull(b.getAction(PytestHtmlReportBuildAction.class).getSummary());
     }
 
     @Test
@@ -152,6 +169,19 @@ class PytestHtmlReportPublisherTest {
 
         FreeStyleBuild b = j.buildAndAssertSuccess(p);
         j.assertLogContains("nothing to publish", b);
+    }
+
+    @Test
+    void reportFileOutsideTheReportDirectoryIsRejected(JenkinsRule j) throws Exception {
+        FreeStyleProject p = j.createFreeStyleProject();
+        p.getBuildersList().add(new WriteReport("report", PASSING_JSON));
+        PytestHtmlReportPublisher publisher = new PytestHtmlReportPublisher();
+        publisher.setReportFile("../pytest_html_report.html");
+        p.getPublishersList().add(publisher);
+
+        FreeStyleBuild b = j.buildAndAssertStatus(Result.FAILURE, p);
+        j.assertLogContains("reportFile must name a file inside reportDir", b);
+        assertNull(b.getAction(PytestHtmlReportBuildAction.class));
     }
 
     @Test
@@ -177,10 +207,12 @@ class PytestHtmlReportPublisherTest {
                         + "  writeFile file: 'out/index.html', text: '<html>pipeline report</html>'\n"
                         + "  writeFile file: 'out/output.json', text: '" + PASSING_JSON + "'\n"
                         + "  publishPytestHtmlReport reportDir: 'out', reportFile: 'index.html'\n"
+                        + "  publishPytestHtmlReport reportDir: 'out', reportFile: 'index.html'\n"
                         + "}",
                 true));
 
         WorkflowRun run = j.buildAndAssertSuccess(job);
+        j.assertLogContains("Replacing the report published earlier in this build", run);
         PytestHtmlReportBuildAction action = run.getAction(PytestHtmlReportBuildAction.class);
         assertNotNull(action);
         assertEquals(4, action.getSummary().getPassed());
