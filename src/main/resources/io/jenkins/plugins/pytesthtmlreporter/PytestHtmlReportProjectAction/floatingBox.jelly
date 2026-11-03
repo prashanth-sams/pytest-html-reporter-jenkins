@@ -1,0 +1,12 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+  <j:if test="${from.trendAvailable}">
+    <div class="pytest-html-reporter-trend-box">
+      <h3>
+        <a href="${from.urlName}/">pytest results trend</a>
+      </h3>
+      <!-- Only numbers computed on the controller; see PytestHtmlReportProjectAction#getTrendSvg -->
+      <j:out value="${from.trendSvg}"/>
+    </div>
+  </j:if>
+</j:jelly>

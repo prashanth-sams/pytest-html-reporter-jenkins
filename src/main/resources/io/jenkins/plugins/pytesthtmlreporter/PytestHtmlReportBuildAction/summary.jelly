@@ -1,0 +1,22 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:t="/lib/hudson">
+  <t:summary icon="${it.iconFileName}">
+    <a href="${it.urlName}/">pytest HTML Report</a>
+    <j:set var="s" value="${it.summary}"/>
+    <j:if test="${s != null}">
+      <div>
+        ${s.total} tests:
+        ${s.passed} passed,
+        ${s.failed} failed,
+        ${s.errors} errors,
+        ${s.skipped} skipped
+        <j:if test="${s.xfailed + s.xpassed > 0}">, ${s.xfailed} xfailed, ${s.xpassed} xpassed</j:if>
+        <j:if test="${s.reruns > 0}">, ${s.reruns} reruns</j:if>
+        (${s.passRate}% pass rate)
+      </div>
+      <j:if test="${s.coveragePercent != null}">
+        <div>Coverage: ${s.coveragePercent}%</div>
+      </j:if>
+    </j:if>
+  </t:summary>
+</j:jelly>

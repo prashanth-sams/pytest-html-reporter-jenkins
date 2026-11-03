@@ -1,0 +1,16 @@
+target/
+work/
+
+# IntelliJ project files
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Eclipse project files
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/

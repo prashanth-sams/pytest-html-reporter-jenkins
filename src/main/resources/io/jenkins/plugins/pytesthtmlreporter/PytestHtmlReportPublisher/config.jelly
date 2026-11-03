@@ -1,0 +1,15 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="Report directory" field="reportDir">
+    <f:textbox default="${descriptor.defaultReportDir}"/>
+  </f:entry>
+  <f:entry title="Report file" field="reportFile">
+    <f:textbox default="${descriptor.defaultReportFile}"/>
+  </f:entry>
+  <f:entry field="markUnstableOnFailure">
+    <f:checkbox title="Mark the build unstable when tests fail or error" default="true"/>
+  </f:entry>
+  <f:entry field="allowMissing">
+    <f:checkbox title="Do not fail the build when no report is found"/>
+  </f:entry>
+</j:jelly>

@@ -1,0 +1,6 @@
+<?jelly escape-by-default='true'?>
+<div>
+  Publishes the HTML report written by the
+  <a href="https://github.com/prashanth-sams/pytest-html-reporter">pytest-html-reporter</a>
+  Python package, links it from every build and charts pytest results across builds.
+</div>
