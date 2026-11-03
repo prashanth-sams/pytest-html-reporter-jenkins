@@ -1,7 +1,6 @@
 package io.jenkins.plugins.pytesthtmlreporter;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import hudson.FilePath;
 import hudson.Launcher;
