@@ -4,6 +4,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.Locale;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 
@@ -68,45 +69,47 @@ public final class PytestReportSummary implements Serializable {
      */
     @NonNull
     public static PytestReportSummary parse(@NonNull String json) {
-        JSONObject root;
         try {
-            root = JSONObject.fromObject(json);
+            JSONObject root = JSONObject.fromObject(json);
+            if (root.isNullObject()) {
+                throw new IllegalArgumentException("output.json does not hold a JSON object");
+            }
+            JSONObject statusList = root.optJSONObject("status_list");
+            if (statusList == null) {
+                statusList = new JSONObject();
+            }
+            int passed = number(statusList, "pass");
+            int failed = number(statusList, "fail");
+            int skipped = number(statusList, "skip");
+            int errors = number(statusList, "error");
+            int xpassed = number(statusList, "xpass");
+            int xfailed = number(statusList, "xfail");
+            int reruns = number(statusList, "rerun");
+            int total = number(root, "total_tests");
+            if (total == 0) {
+                total = passed + failed + skipped + errors + xpassed + xfailed;
+            }
+            Double coverage = null;
+            JSONObject coverageObject = root.optJSONObject("coverage");
+            if (coverageObject != null) {
+                coverage = decimal(coverageObject, "percent");
+            }
+            return new PytestReportSummary(
+                    passed,
+                    failed,
+                    skipped,
+                    errors,
+                    xpassed,
+                    xfailed,
+                    reruns,
+                    total,
+                    number(root, "total_suite"),
+                    text(root, "status"),
+                    text(root, "date"),
+                    coverage);
         } catch (JSONException e) {
             throw new IllegalArgumentException("output.json is not valid JSON: " + e.getMessage(), e);
         }
-        JSONObject statusList = root.optJSONObject("status_list");
-        if (statusList == null) {
-            statusList = new JSONObject();
-        }
-        int passed = number(statusList, "pass");
-        int failed = number(statusList, "fail");
-        int skipped = number(statusList, "skip");
-        int errors = number(statusList, "error");
-        int xpassed = number(statusList, "xpass");
-        int xfailed = number(statusList, "xfail");
-        int reruns = number(statusList, "rerun");
-        int total = number(root, "total_tests");
-        if (total == 0) {
-            total = passed + failed + skipped + errors + xpassed + xfailed;
-        }
-        Double coverage = null;
-        JSONObject coverageObject = root.optJSONObject("coverage");
-        if (coverageObject != null) {
-            coverage = decimal(coverageObject, "percent");
-        }
-        return new PytestReportSummary(
-                passed,
-                failed,
-                skipped,
-                errors,
-                xpassed,
-                xfailed,
-                reruns,
-                total,
-                number(root, "total_suite"),
-                text(root, "status"),
-                text(root, "date"),
-                coverage);
     }
 
     private static int number(JSONObject object, String key) {
@@ -207,6 +210,12 @@ public final class PytestReportSummary implements Serializable {
     @CheckForNull
     public Double getCoveragePercent() {
         return coveragePercent;
+    }
+
+    /** Coverage with one decimal, e.g. {@code 87.5}, or {@code null} when coverage was not measured. */
+    @CheckForNull
+    public String getCoverageLabel() {
+        return coveragePercent == null ? null : String.format(Locale.ROOT, "%.1f", coveragePercent);
     }
 
     /** Tests that failed or errored: the ones that make a build unstable. */

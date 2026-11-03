@@ -1,0 +1,8 @@
+<div>
+  Run this before pytest when builds start from a clean workspace, for example on ephemeral agents
+  or containers. pytest-html-reporter keeps the history behind its <em>Archives</em> tab, trends and
+  analytics in the report directory itself, so a clean workspace would start that history over.
+  This step copies <code>output.json</code>, the <code>archive</code> folder and the previous report
+  from the last build that published one back into the workspace. It does nothing when the
+  workspace already holds a report history.
+</div>

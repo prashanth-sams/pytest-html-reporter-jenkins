@@ -1,5 +1,5 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:t="/lib/hudson">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:t="/lib/hudson">
   <t:summary icon="${it.iconFileName}">
     <a href="${it.urlName}/">pytest HTML Report</a>
     <j:set var="s" value="${it.summary}"/>
@@ -14,9 +14,16 @@
         <j:if test="${s.reruns > 0}">, ${s.reruns} reruns</j:if>
         (${s.passRate}% pass rate)
       </div>
-      <j:if test="${s.coveragePercent != null}">
-        <div>Coverage: ${s.coveragePercent}%</div>
+      <j:if test="${s.coverageLabel != null}">
+        <div>Coverage: ${s.coverageLabel}%</div>
       </j:if>
     </j:if>
+    <!-- Shown by cspCheck.js only when Jenkins serves the report with a policy that blocks its scripts -->
+    <div class="jenkins-alert jenkins-alert-warning jenkins-hidden phr-csp-hint" data-report-url="${it.urlName}/">
+      Jenkins blocks JavaScript in files produced by builds, so the report's tabs and charts will not respond.
+      A Jenkins administrator can allow them by setting a
+      <a href="https://www.jenkins.io/doc/book/security/user-content/#resource-root-url" target="_blank" rel="noopener noreferrer">Resource Root URL</a>.
+    </div>
+    <st:adjunct includes="io.jenkins.plugins.pytesthtmlreporter.PytestHtmlReportBuildAction.cspCheck"/>
   </t:summary>
 </j:jelly>

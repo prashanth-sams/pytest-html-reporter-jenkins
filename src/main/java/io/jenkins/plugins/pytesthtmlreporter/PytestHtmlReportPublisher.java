@@ -1,5 +1,6 @@
 package io.jenkins.plugins.pytesthtmlreporter;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.EnvVars;
@@ -34,6 +35,12 @@ public class PytestHtmlReportPublisher extends Recorder implements SimpleBuildSt
     public static final String DEFAULT_REPORT_DIR = "report";
     public static final String DEFAULT_REPORT_FILE = "pytest_html_report.html";
     static final String OUTPUT_JSON = "output.json";
+
+    /**
+     * Larger {@code output.json} files are not parsed on the controller; the report is still published.
+     * pytest-html-reporter writes a few hundred bytes per test, so this covers suites of 100,000 tests.
+     */
+    static final long MAX_OUTPUT_JSON_BYTES = 32L * 1024 * 1024;
 
     private String reportDir = DEFAULT_REPORT_DIR;
     private String reportFile = DEFAULT_REPORT_FILE;
@@ -98,6 +105,10 @@ public class PytestHtmlReportPublisher extends Recorder implements SimpleBuildSt
         PrintStream log = listener.getLogger();
         String dir = env.expand(reportDir);
         String file = env.expand(reportFile);
+        if (!isSafeRelativePath(file)) {
+            throw new AbortException(
+                    LOG_PREFIX + "reportFile must name a file inside reportDir, without '..': " + file);
+        }
 
         FilePath source = workspace.child(dir);
         FilePath index = source.child(file);
@@ -111,6 +122,10 @@ public class PytestHtmlReportPublisher extends Recorder implements SimpleBuildSt
                     + ", or point reportDir/reportFile at the report.");
         }
 
+        if (run.getAction(PytestHtmlReportBuildAction.class) != null) {
+            log.println(LOG_PREFIX + "Replacing the report published earlier in this build;"
+                    + " a build keeps one pytest HTML report.");
+        }
         FilePath target = new FilePath(PytestHtmlReportBuildAction.getReportDir(run));
         if (target.exists()) {
             target.deleteRecursive();
@@ -134,15 +149,37 @@ public class PytestHtmlReportPublisher extends Recorder implements SimpleBuildSt
         }
     }
 
+    /** Whether a path names a file inside a folder: relative, and without {@code ..} segments. */
+    static boolean isSafeRelativePath(@NonNull String path) {
+        String normalized = path.replace('\\', '/');
+        if (normalized.isEmpty() || normalized.startsWith("/") || normalized.matches("^[A-Za-z]:.*")) {
+            return false;
+        }
+        for (String segment : normalized.split("/")) {
+            if (segment.equals("..")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @CheckForNull
     private static PytestReportSummary readSummary(FilePath json, PrintStream log)
             throws IOException, InterruptedException {
         if (!json.exists()) {
             log.println(LOG_PREFIX + OUTPUT_JSON + " not found; the report is published without a summary.");
             return null;
         }
+        long size = json.length();
+        if (size > MAX_OUTPUT_JSON_BYTES) {
+            log.println(LOG_PREFIX + OUTPUT_JSON + " is " + size + " bytes, more than the " + MAX_OUTPUT_JSON_BYTES
+                    + " this plugin reads; the report is published without a summary.");
+            return null;
+        }
         try {
             return PytestReportSummary.parse(json.readToString());
-        } catch (IllegalArgumentException e) {
+        } catch (RuntimeException e) {
+            // A summary that cannot be read must not stop the report from being published.
             log.println(LOG_PREFIX + "Could not read " + OUTPUT_JSON + ": " + e.getMessage());
             return null;
         }

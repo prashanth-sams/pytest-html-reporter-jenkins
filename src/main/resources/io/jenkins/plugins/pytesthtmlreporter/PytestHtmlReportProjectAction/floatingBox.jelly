@@ -1,12 +1,14 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core">
-  <j:if test="${from.trendAvailable}">
-    <div class="pytest-html-reporter-trend-box">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler">
+  <j:set var="trendSvg" value="${from.trendSvg}"/>
+  <j:if test="${!empty(trendSvg)}">
+    <st:adjunct includes="io.jenkins.plugins.pytesthtmlreporter.PytestHtmlReportProjectAction.trend"/>
+    <div class="phr-trend-box">
       <h3>
         <a href="${from.urlName}/">pytest results trend</a>
       </h3>
-      <!-- Only numbers computed on the controller; see PytestHtmlReportProjectAction#getTrendSvg -->
-      <j:out value="${from.trendSvg}"/>
+      <!-- Only numbers computed on the controller: see PytestHtmlReportProjectAction#getTrendSvg -->
+      <j:out value="${trendSvg}"/>
     </div>
   </j:if>
 </j:jelly>

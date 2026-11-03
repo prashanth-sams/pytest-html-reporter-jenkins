@@ -1,0 +1,44 @@
+.phr-trend-box {
+  width: 520px;
+  max-width: 100%;
+  margin-bottom: var(--section-padding);
+}
+
+.phr-trend {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-size: 11px;
+}
+
+.phr-trend .phr-pass {
+  fill: var(--success-color);
+}
+
+.phr-trend .phr-fail {
+  fill: var(--error-color);
+}
+
+.phr-trend .phr-error {
+  fill: var(--warning-color);
+}
+
+.phr-trend .phr-skip {
+  fill: var(--text-color-secondary);
+}
+
+.phr-trend .phr-axis {
+  stroke: var(--text-color-secondary);
+}
+
+.phr-trend .phr-label {
+  fill: var(--text-color-secondary);
+}
+
+.phr-trend .phr-legend {
+  fill: var(--text-color);
+}
+
+.phr-trend a:hover rect {
+  opacity: 0.75;
+}
